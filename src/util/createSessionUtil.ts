@@ -33,12 +33,7 @@ export default class CreateSessionUtil {
     return client._chatWootClient;
   }
 
-  async createSessionUtil(
-    req: any,
-    clientsArray: any,
-    session: string,
-    res?: any
-  ) {
+  async createSessionUtil(req: any, clientsArray: any, session: string) {
     try {
       let client = this.getClient(session) as any;
       if (client.status != null && client.status !== 'CLOSED') return;
@@ -54,81 +49,92 @@ export default class CreateSessionUtil {
 
       this.startChatWootClient(client);
 
+      const createOptions = Object.assign(
+        {},
+        JSON.parse(JSON.stringify(req.serverOptions.createOptions)),
+        { tokenStore: myTokenStore },
+        client.config.proxy
+          ? {
+              proxy: {
+                url: client.config.proxy?.url,
+                username: client.config.proxy?.username,
+                password: client.config.proxy?.password,
+              },
+            }
+          : {},
+        {
+          session: session,
+          phoneNumber: client.config.phone ?? null,
+          deviceName:
+            client.config.phone == undefined // bug when using phone code this shouldn't be passed (https://github.com/wppconnect-team/wppconnect-server/issues/1687#issuecomment-2099357874)
+              ? client.config?.deviceName ||
+                req.serverOptions.deviceName ||
+                'WppConnect'
+              : undefined,
+          poweredBy:
+            client.config.phone == undefined // bug when using phone code this shouldn't be passed (https://github.com/wppconnect-team/wppconnect-server/issues/1687#issuecomment-2099357874)
+              ? client.config?.poweredBy ||
+                req.serverOptions.poweredBy ||
+                'WPPConnect-Server'
+              : undefined,
+          catchLinkCode: (code: string) => {
+            this.exportPhoneCode(req, client.config.phone, code, client);
+          },
+          catchQR: (
+            base64Qr: any,
+            asciiQR: any,
+            attempt: any,
+            urlCode: string
+          ) => {
+            this.exportQR(req, base64Qr, urlCode, client);
+          },
+          onLoadingScreen: (percent: string, message: string) => {
+            req.logger.info(`[${session}] ${percent}% - ${message}`);
+          },
+          statusFind: (statusFind: StatusFind) => {
+            try {
+              eventEmitter.emit(`status-${client.session}`, client, statusFind);
+              if (
+                statusFind === StatusFind.autocloseCalled ||
+                statusFind === StatusFind.disconnectedMobile
+              ) {
+                client.status = 'CLOSED';
+                client.qrcode = null;
+                client.close();
+                clientsArray[session] = undefined;
+              }
+              callWebHook(client, req, 'status-find', {
+                status: statusFind,
+                session: client.session,
+              });
+              req.logger.info(`[${session}] Status: ${statusFind}`);
+            } catch (error) {}
+          },
+        }
+      );
+
       if (req.serverOptions.customUserDataDir) {
-        req.serverOptions.createOptions.puppeteerOptions = {
+        createOptions.puppeteerOptions = {
+          ...createOptions.puppeteerOptions,
           userDataDir: req.serverOptions.customUserDataDir + session,
         };
       }
 
-      const wppClient = await create(
-        Object.assign(
-          {},
-          { tokenStore: myTokenStore },
-          client.config.proxy
-            ? {
-                proxy: {
-                  url: client.config.proxy?.url,
-                  username: client.config.proxy?.username,
-                  password: client.config.proxy?.password,
-                },
-              }
-            : {},
-          req.serverOptions.createOptions,
-          {
-            session: session,
-            phoneNumber: client.config.phone ?? null,
-            deviceName:
-              client.config.phone == undefined // bug when using phone code this shouldn't be passed (https://github.com/wppconnect-team/wppconnect-server/issues/1687#issuecomment-2099357874)
-                ? client.config?.deviceName ||
-                  req.serverOptions.deviceName ||
-                  'WppConnect'
-                : undefined,
-            poweredBy:
-              client.config.phone == undefined // bug when using phone code this shouldn't be passed (https://github.com/wppconnect-team/wppconnect-server/issues/1687#issuecomment-2099357874)
-                ? client.config?.poweredBy ||
-                  req.serverOptions.poweredBy ||
-                  'WPPConnect-Server'
-                : undefined,
-            catchLinkCode: (code: string) => {
-              this.exportPhoneCode(req, client.config.phone, code, client, res);
-            },
-            catchQR: (
-              base64Qr: any,
-              asciiQR: any,
-              attempt: any,
-              urlCode: string
-            ) => {
-              this.exportQR(req, base64Qr, urlCode, client, res);
-            },
-            onLoadingScreen: (percent: string, message: string) => {
-              req.logger.info(`[${session}] ${percent}% - ${message}`);
-            },
-            statusFind: (statusFind: StatusFind) => {
-              try {
-                eventEmitter.emit(
-                  `status-${client.session}`,
-                  client,
-                  statusFind
-                );
-                if (
-                  statusFind === StatusFind.autocloseCalled ||
-                  statusFind === StatusFind.disconnectedMobile
-                ) {
-                  client.status = 'CLOSED';
-                  client.qrcode = null;
-                  client.close();
-                  clientsArray[session] = undefined;
-                }
-                callWebHook(client, req, 'status-find', {
-                  status: statusFind,
-                  session: client.session,
-                });
-                req.logger.info(statusFind + '\n\n');
-              } catch (error) {}
-            },
-          }
-        )
+      const logOptions = { ...createOptions };
+      if (logOptions.proxy) {
+        logOptions.proxy = { ...logOptions.proxy };
+        if (logOptions.proxy.password) logOptions.proxy.password = '********';
+      }
+
+      req.logger.info(
+        `[${session}] Launching Puppeteer with options: ${JSON.stringify(
+          logOptions
+        )}`
       );
+
+      const wppClient = await create(createOptions);
+
+      req.logger.info(`[${session}] Browser launched successfully`);
 
       client = clientsArray[session] = Object.assign(wppClient, client);
       await this.start(req, client);
@@ -160,16 +166,70 @@ export default class CreateSessionUtil {
     }
   }
 
-  async opendata(req: Request, session: string, res?: any) {
-    await this.createSessionUtil(req, clientsArray, session, res);
+  async opendata(req: any, session: string, res?: any) {
+    if (res) {
+      const client = this.getClient(session) as any;
+      if (client.status === 'CONNECTED') {
+        return res.status(200).json({ status: 'CONNECTED', session });
+      }
+
+      let resolved = false;
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          eventEmitter.off(`qrcode-${session}`, qrListener);
+          eventEmitter.off(`status-${session}`, statusListener);
+          res.status(202).json({
+            status: 'INITIALIZING',
+            session,
+            message: 'Timeout waiting for QR code',
+          });
+        }
+      }, 30000);
+
+      const qrListener = (qrCode: string, urlCode: string) => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          eventEmitter.off(`status-${session}`, statusListener);
+          res.status(200).json({
+            status: 'qrcode',
+            qrcode: qrCode.replace('data:image/png;base64,', ''),
+            urlcode: urlCode,
+            session,
+          });
+        }
+      };
+
+      const statusListener = (client: any, status: string) => {
+        if (!resolved) {
+          if (
+            status === 'CONNECTED' ||
+            status === StatusFind.isLogged ||
+            status === StatusFind.inChat ||
+            status === StatusFind.qrReadSuccess
+          ) {
+            resolved = true;
+            clearTimeout(timeout);
+            eventEmitter.off(`qrcode-${session}`, qrListener);
+            res.status(200).json({ status: 'CONNECTED', session });
+          }
+        }
+      };
+
+      eventEmitter.once(`qrcode-${session}`, qrListener);
+      eventEmitter.on(`status-${session}`, statusListener);
+    }
+    this.createSessionUtil(req, clientsArray, session).catch((e) => {
+      req.logger.error(`Error in createSessionUtil for session ${session}:`, e);
+    });
   }
 
   exportPhoneCode(
     req: any,
     phone: any,
     phoneCode: any,
-    client: WhatsAppServer,
-    res?: any
+    client: WhatsAppServer
   ) {
     eventEmitter.emit(`phoneCode-${client.session}`, phoneCode, client);
 
@@ -190,23 +250,10 @@ export default class CreateSessionUtil {
       phone: phone,
       session: client.session,
     });
-
-    if (res && !res._headerSent)
-      res.status(200).json({
-        status: 'phoneCode',
-        phone: phone,
-        phoneCode: phoneCode,
-        session: client.session,
-      });
   }
 
-  exportQR(
-    req: any,
-    qrCode: any,
-    urlCode: any,
-    client: WhatsAppServer,
-    res?: any
-  ) {
+  exportQR(req: any, qrCode: any, urlCode: any, client: WhatsAppServer) {
+    req.logger.info(`[${client.session}] QR Code generated`);
     eventEmitter.emit(`qrcode-${client.session}`, qrCode, urlCode, client);
     Object.assign(client, {
       status: 'QRCODE',
@@ -227,13 +274,6 @@ export default class CreateSessionUtil {
       urlcode: urlCode,
       session: client.session,
     });
-    if (res && !res._headerSent)
-      res.status(200).json({
-        status: 'qrcode',
-        qrcode: qrCode,
-        urlcode: urlCode,
-        session: client.session,
-      });
   }
 
   async onParticipantsChanged(req: any, client: any) {
@@ -249,6 +289,7 @@ export default class CreateSessionUtil {
       Object.assign(client, { status: 'CONNECTED', qrcode: null });
 
       req.logger.info(`Started Session: ${client.session}`);
+      eventEmitter.emit(`status-${client.session}`, client, 'CONNECTED');
       //callWebHook(client, req, 'session-logged', { status: 'CONNECTED'});
       req.io.emit('session-logged', { status: true, session: client.session });
       startHelper(client, req);
