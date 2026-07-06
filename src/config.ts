@@ -69,42 +69,46 @@ export default {
   },
 
   createOptions: {
-  executablePath:
-    process.env.PUPPETEER_EXECUTABLE_PATH ||
-    process.env.CHROME_BIN ||
-    '/usr/bin/chromium',
+    executablePath:
+      process.env.PUPPETEER_EXECUTABLE_PATH ||
+      process.env.CHROME_BIN ||
+      '/usr/bin/chromium',
 
-  headless: true,
+    headless: true,
 
-  browserArgs: [
-    '--disable-web-security',
-    '--no-sandbox',
-    '--disable-setuid-sandbox',
-    '--disable-dev-shm-usage',
-    '--disable-gpu',
-    '--disable-extensions',
-    '--disable-sync',
-    '--disable-background-networking',
-    '--disable-default-apps',
-    '--disable-cache',
-    '--disable-application-cache',
-    '--disk-cache-size=0',
-    '--disable-offline-load-stale-cache',
-    '--aggressive-cache-discard',
-    '--mute-audio',
-    '--hide-scrollbars',
-    '--no-first-run',
-    '--no-zygote',
-    '--single-process',
-    '--disable-features=site-per-process',
-    '--disable-software-rasterizer',
-    '--ignore-certificate-errors',
-    '--ignore-ssl-errors',
-    '--ignore-certificate-errors-spki-list',
-  ],
+    browserArgs: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--disable-extensions',
+      '--disable-background-networking',
+      '--disable-sync',
+      '--disable-default-apps',
+      '--disable-cache',
+      '--disable-application-cache',
+      '--disk-cache-size=0',
+      '--disable-offline-load-stale-cache',
+      '--aggressive-cache-discard',
+      '--mute-audio',
+      '--hide-scrollbars',
+      '--no-first-run',
+      '--no-zygote',
+      '--single-process',
+      '--disable-features=site-per-process',
+      '--disable-software-rasterizer',
+      '--ignore-certificate-errors',
+      '--ignore-ssl-errors',
+      '--ignore-certificate-errors-spki-list',
+      '--disable-features=IsolateOrigins,site-per-process',
+      '--disable-blink-features=AutomationControlled',
+    ],
 
-  linkPreviewApiServers: null,
-},
+    linkPreviewApiServers: null,
+
+    // Uncomment if you want to pin a specific WhatsApp Web version
+    // whatsappVersion: process.env.WHATSAPP_VERSION,
+  },
 
   mapper: {
     enable: process.env.MAPPER_ENABLE === 'true',
