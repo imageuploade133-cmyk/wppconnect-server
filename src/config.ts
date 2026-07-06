@@ -69,6 +69,13 @@ export default {
   },
 
   createOptions: {
+  executablePath:
+    process.env.PUPPETEER_EXECUTABLE_PATH ||
+    process.env.CHROME_BIN ||
+    '/usr/bin/chromium',
+
+  headless: true,
+
   browserArgs: [
     '--disable-web-security',
     '--no-sandbox',
@@ -87,6 +94,10 @@ export default {
     '--mute-audio',
     '--hide-scrollbars',
     '--no-first-run',
+    '--no-zygote',
+    '--single-process',
+    '--disable-features=site-per-process',
+    '--disable-software-rasterizer',
     '--ignore-certificate-errors',
     '--ignore-ssl-errors',
     '--ignore-certificate-errors-spki-list',
