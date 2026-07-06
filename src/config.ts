@@ -18,8 +18,7 @@ export default {
 
   maxListeners: Number(process.env.MAX_LISTENERS || 15),
 
-  customUserDataDir:
-    process.env.CUSTOM_USER_DATA_DIR || './userDataDir/',
+  customUserDataDir: process.env.CUSTOM_USER_DATA_DIR || './userDataDir/',
 
   // Webhook
   webhook: {
@@ -27,23 +26,16 @@ export default {
     autoDownload: process.env.WEBHOOK_AUTO_DOWNLOAD !== 'false',
     uploadS3: process.env.WEBHOOK_UPLOAD_S3 === 'true',
     readMessage: process.env.WEBHOOK_READ_MESSAGE !== 'false',
-    allUnreadOnStart:
-      process.env.WEBHOOK_ALL_UNREAD_ON_START === 'true',
+    allUnreadOnStart: process.env.WEBHOOK_ALL_UNREAD_ON_START === 'true',
     listenAcks: process.env.WEBHOOK_LISTEN_ACKS !== 'false',
-    onPresenceChanged:
-      process.env.WEBHOOK_ON_PRESENCE_CHANGED !== 'false',
+    onPresenceChanged: process.env.WEBHOOK_ON_PRESENCE_CHANGED !== 'false',
     onParticipantsChanged:
       process.env.WEBHOOK_ON_PARTICIPANTS_CHANGED !== 'false',
-    onReactionMessage:
-      process.env.WEBHOOK_ON_REACTION_MESSAGE !== 'false',
-    onPollResponse:
-      process.env.WEBHOOK_ON_POLL_RESPONSE !== 'false',
-    onRevokedMessage:
-      process.env.WEBHOOK_ON_REVOKED_MESSAGE !== 'false',
-    onLabelUpdated:
-      process.env.WEBHOOK_ON_LABEL_UPDATED !== 'false',
-    onSelfMessage:
-      process.env.WEBHOOK_ON_SELF_MESSAGE === 'true',
+    onReactionMessage: process.env.WEBHOOK_ON_REACTION_MESSAGE !== 'false',
+    onPollResponse: process.env.WEBHOOK_ON_POLL_RESPONSE !== 'false',
+    onRevokedMessage: process.env.WEBHOOK_ON_REVOKED_MESSAGE !== 'false',
+    onLabelUpdated: process.env.WEBHOOK_ON_LABEL_UPDATED !== 'false',
+    onSelfMessage: process.env.WEBHOOK_ON_SELF_MESSAGE === 'true',
     ignore: ['status@broadcast'],
   },
 
@@ -70,9 +62,7 @@ export default {
 
   createOptions: {
     executablePath:
-      process.env.PUPPETEER_EXECUTABLE_PATH ||
-      process.env.CHROME_BIN ||
-      '/usr/bin/chromium',
+      process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_BIN || null,
 
     headless: true,
 
@@ -102,6 +92,7 @@ export default {
       '--ignore-certificate-errors-spki-list',
       '--disable-features=IsolateOrigins,site-per-process',
       '--disable-blink-features=AutomationControlled',
+      '--no-proxy-server',
     ],
 
     linkPreviewApiServers: null,
@@ -116,47 +107,31 @@ export default {
   },
 
   db: {
-    mongodbDatabase:
-      process.env.MONGODB_DATABASE || 'tokens',
+    mongodbDatabase: process.env.MONGODB_DATABASE || 'tokens',
 
-    mongodbCollection:
-      process.env.MONGODB_COLLECTION || '',
+    mongodbCollection: process.env.MONGODB_COLLECTION || '',
 
-    mongodbUser:
-      process.env.MONGODB_USER || '',
+    mongodbUser: process.env.MONGODB_USER || '',
 
-    mongodbPassword:
-      process.env.MONGODB_PASSWORD || '',
+    mongodbPassword: process.env.MONGODB_PASSWORD || '',
 
-    mongodbHost:
-      process.env.MONGODB_HOST || '',
+    mongodbHost: process.env.MONGODB_HOST || '',
 
-    mongoIsRemote:
-      process.env.MONGO_IS_REMOTE === 'true',
+    mongoIsRemote: process.env.MONGO_IS_REMOTE === 'true',
 
-    mongoURLRemote:
-      process.env.MONGO_REMOTE_URL || '',
+    mongoURLRemote: process.env.MONGO_REMOTE_URL || '',
 
-    mongodbPort: Number(
-      process.env.MONGODB_PORT || 27017
-    ),
+    mongodbPort: Number(process.env.MONGODB_PORT || 27017),
 
-    redisHost:
-      process.env.REDIS_HOST || 'localhost',
+    redisHost: process.env.REDIS_HOST || 'localhost',
 
-    redisPort: Number(
-      process.env.REDIS_PORT || 6379
-    ),
+    redisPort: Number(process.env.REDIS_PORT || 6379),
 
-    redisPassword:
-      process.env.REDIS_PASSWORD || '',
+    redisPassword: process.env.REDIS_PASSWORD || '',
 
-    redisDb: Number(
-      process.env.REDIS_DB || 0
-    ),
+    redisDb: Number(process.env.REDIS_DB || 0),
 
-    redisPrefix:
-      process.env.REDIS_PREFIX || 'docker',
+    redisPrefix: process.env.REDIS_PREFIX || 'docker',
   },
 
   aws_s3: {
@@ -165,7 +140,6 @@ export default {
     secret_key: process.env.AWS_SECRET_ACCESS_KEY || null,
     defaultBucketName: process.env.AWS_BUCKET || null,
     endpoint: process.env.AWS_ENDPOINT || null,
-    forcePathStyle:
-      process.env.AWS_FORCE_PATH_STYLE === 'true',
+    forcePathStyle: process.env.AWS_FORCE_PATH_STYLE === 'true',
   },
 } as unknown as ServerOptions;
