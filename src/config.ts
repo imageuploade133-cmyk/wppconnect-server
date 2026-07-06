@@ -104,8 +104,6 @@ export default {
   ],
 
   linkPreviewApiServers: null,
-
-  // whatsappVersion: process.env.WHATSAPP_VERSION,
 },
 
   mapper: {
