@@ -1,8 +1,10 @@
 FROM node:22.22.2-alpine AS base
+
 WORKDIR /usr/src/wpp-server
+
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
-# Install build dependencies and runtime libraries for sharp
+# Install build dependencies
 RUN apk update && \
     apk add --no-cache \
     vips \
@@ -16,34 +18,55 @@ RUN apk update && \
     python3 \
     && rm -rf /var/cache/apk/*
 
-# To make sure yarn 4 uses node-modules linker
+# Ensure Yarn uses node_modules linker
 COPY .yarnrc.yml ./
 
-# Copy only package.json to leverage Docker cache
+# Copy dependency files
 COPY package.json ./
 COPY yarn.lock ./
 
-# Enable corepack and prepare yarn 4.14.1
+# Enable Corepack and Yarn
 RUN corepack enable && \
     corepack prepare yarn@4.14.1 --activate
 
-# Install dependencies with immutable lockfile
+# Install dependencies
 RUN yarn install --immutable
 
+# ==========================
+# Build Stage
+# ==========================
 FROM base AS build
+
 WORKDIR /usr/src/wpp-server
+
 COPY . .
-RUN yarn install
+
+RUN yarn install --immutable
 RUN yarn build
 
+# ==========================
+# Runtime Stage
+# ==========================
 FROM build AS runtime
-WORKDIR /usr/src/wpp-server/
 
-# Install runtime dependencies (chromium and vips libraries)
+WORKDIR /usr/src/wpp-server
+
+ENV NODE_ENV=production
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV CHROME_BIN=/usr/bin/chromium
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+
+# Install Chromium and required runtime libraries
 RUN apk add --no-cache \
     chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
     vips \
     fftw
 
 EXPOSE 21465
+
 ENTRYPOINT ["node", "dist/server.js"]
