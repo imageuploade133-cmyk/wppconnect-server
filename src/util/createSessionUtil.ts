@@ -170,15 +170,29 @@ export default class CreateSessionUtil {
     if (res) {
       const client = this.getClient(session) as any;
       if (client.status === 'CONNECTED') {
-        return res.status(200).json({ status: 'CONNECTED', session });
+        if (!res.headersSent) {
+          return res.status(200).json({ status: 'CONNECTED', session });
+        }
+        return;
       }
 
       let resolved = false;
+
+      const cleanup = () => {
+        eventEmitter.off(`qrcode-${session}`, qrListener);
+        eventEmitter.off(`status-${session}`, statusListener);
+      };
+
       const timeout = setTimeout(() => {
         if (!resolved) {
           resolved = true;
-          eventEmitter.off(`qrcode-${session}`, qrListener);
-          eventEmitter.off(`status-${session}`, statusListener);
+          cleanup();
+          if (res.headersSent) {
+            req.logger.warn(
+              `[${session}] Timeout fired but response already sent — skipping`
+            );
+            return;
+          }
           res.status(202).json({
             status: 'INITIALIZING',
             session,
@@ -191,7 +205,13 @@ export default class CreateSessionUtil {
         if (!resolved) {
           resolved = true;
           clearTimeout(timeout);
-          eventEmitter.off(`status-${session}`, statusListener);
+          cleanup();
+          if (res.headersSent) {
+            req.logger.warn(
+              `[${session}] QR event fired but response already sent — skipping`
+            );
+            return;
+          }
           res.status(200).json({
             status: 'qrcode',
             qrcode: qrCode.replace('data:image/png;base64,', ''),
@@ -211,7 +231,13 @@ export default class CreateSessionUtil {
           ) {
             resolved = true;
             clearTimeout(timeout);
-            eventEmitter.off(`qrcode-${session}`, qrListener);
+            cleanup();
+            if (res.headersSent) {
+              req.logger.warn(
+                `[${session}] Status event fired but response already sent — skipping`
+              );
+              return;
+            }
             res.status(200).json({ status: 'CONNECTED', session });
           }
         }
