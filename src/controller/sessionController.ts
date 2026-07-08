@@ -29,61 +29,59 @@ import { clientsArray, deleteSessionOnArray } from '../util/sessionUtil';
 
 const SessionUtil = new CreateSessionUtil();
 
+async function internalCloseSession(client: any) {
+  try {
+    await client.close();
+  } catch (error) {}
+  try {
+    await client.page?.browser()?.close();
+  } catch (error) {}
+}
+
+async function sendMediaResponse(res: Response, buffer: any, mimetype: string) {
+  res.status(200).json({
+    base64: buffer.toString('base64'),
+    mimetype: mimetype,
+  });
+}
+
+async function saveFile(
+  message: Message,
+  buffer: any,
+  logger: Logger
+): Promise<string> {
+  const filename = `./WhatsAppImages/file${message.t}`;
+  const extension =
+    message.type === 'ptt' ? 'oga' : mime.extension(message.mimetype);
+  const result = `${filename}.${extension}`;
+
+  if (!fs.existsSync(result)) {
+    await fs.writeFile(result, buffer, (err) => {
+      if (err) {
+        logger.error(err);
+      }
+    });
+  }
+
+  return result;
+}
+
 async function downloadFileFunction(
   message: Message,
   client: Whatsapp,
   logger: Logger
 ) {
   try {
-    let buffer: Buffer | any = await client.decryptFile(message);
-
-    const filename = `./WhatsAppImages/file${message.t}`;
-    if (!fs.existsSync(filename)) {
-      let result = '';
-      if (message.type === 'ptt') {
-        result = `${filename}.oga`;
-      } else {
-        result = `${filename}.${mime.extension(message.mimetype)}`;
-      }
-
-      await fs.writeFile(result, buffer, (err) => {
-        if (err) {
-          logger.error(err);
-        }
-        buffer = null;
-      });
-
-      return result;
-    } else {
-      return `${filename}.${mime.extension(message.mimetype)}`;
-    }
+    const buffer: Buffer | any = await client.decryptFile(message);
+    return await saveFile(message, buffer, logger);
   } catch (e) {
     logger.error(e);
     logger.warn(
       'Erro ao descriptografar a midia, tentando fazer o download direto...'
     );
     try {
-      let buffer: Buffer | any = await client.downloadMedia(message);
-      const filename = `./WhatsAppImages/file${message.t}`;
-      if (!fs.existsSync(filename)) {
-        let result = '';
-        if (message.type === 'ptt') {
-          result = `${filename}.oga`;
-        } else {
-          result = `${filename}.${mime.extension(message.mimetype)}`;
-        }
-
-        await fs.writeFile(result, buffer, (err) => {
-          if (err) {
-            logger.error(err);
-          }
-          buffer = null;
-        });
-
-        return result;
-      } else {
-        return `${filename}.${mime.extension(message.mimetype)}`;
-      }
+      const buffer: Buffer | any = await client.downloadMedia(message);
+      return await saveFile(message, buffer, logger);
     } catch (e) {
       logger.error(e);
       logger.warn('Não foi possível baixar a mídia...');
@@ -263,10 +261,7 @@ export async function closeSession(req: Request, res: Response): Promise<any> {
     } else {
       (clientsArray as any)[session] = { status: null };
 
-      await req.client.close();
-      try {
-        await req.client.page?.browser()?.close();
-      } catch (error) {}
+      await internalCloseSession(req.client);
       req.io.emit('whatsapp-status', false);
       callWebHook(req.client, req, 'closesession', {
         message: `Session: ${session} disconnected`,
@@ -302,12 +297,7 @@ export async function logOutSession(req: Request, res: Response): Promise<any> {
     const session = req.session;
     await req.client.logout();
 
-    try {
-      await req.client.close();
-    } catch (error) {}
-    try {
-      await req.client.page?.browser()?.close();
-    } catch (error) {}
+    await internalCloseSession(req.client);
 
     deleteSessionOnArray(req.session);
 
@@ -431,9 +421,7 @@ export async function downloadMediaByMessage(req: Request, res: Response) {
 
     let buffer: any = await client.decryptFile(message);
 
-    res
-      .status(200)
-      .json({ base64: buffer.toString('base64'), mimetype: message.mimetype });
+    await sendMediaResponse(res, buffer, message.mimetype);
     buffer = null;
   } catch (e) {
     req.logger.error(e);
@@ -480,9 +468,7 @@ export async function getMediaByMessage(req: Request, res: Response) {
 
     let buffer: any = await client.decryptFile(message);
 
-    res
-      .status(200)
-      .json({ base64: buffer.toString('base64'), mimetype: message.mimetype });
+    await sendMediaResponse(res, buffer, message.mimetype);
     buffer = null;
   } catch (ex) {
     req.logger.error(ex);
