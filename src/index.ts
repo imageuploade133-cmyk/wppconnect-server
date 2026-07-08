@@ -113,6 +113,8 @@ export function initServer(serverOptions: Partial<ServerOptions>): {
 
     sock.on('disconnect', () => {
       logger.info(`ID: ${sock.id} saiu`);
+      // Clean up socket resources on disconnect
+      sock.removeAllListeners();
     });
   });
 
@@ -141,3 +143,4 @@ please set the log to 'silly', copy the log that shows the error and open your i
     logger,
   };
 }
+
