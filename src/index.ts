@@ -113,6 +113,7 @@ export function initServer(serverOptions: Partial<ServerOptions>): {
 
     sock.on('disconnect', () => {
       logger.info(`ID: ${sock.id} saiu`);
+      sock.removeAllListeners();
     });
   });
 
