@@ -35,7 +35,7 @@ async function downloadFileFunction(
   logger: Logger
 ) {
   try {
-    const buffer = await client.decryptFile(message);
+    let buffer: Buffer | any = await client.decryptFile(message);
 
     const filename = `./WhatsAppImages/file${message.t}`;
     if (!fs.existsSync(filename)) {
@@ -50,6 +50,7 @@ async function downloadFileFunction(
         if (err) {
           logger.error(err);
         }
+        buffer = null;
       });
 
       return result;
@@ -62,7 +63,7 @@ async function downloadFileFunction(
       'Erro ao descriptografar a midia, tentando fazer o download direto...'
     );
     try {
-      const buffer = await client.downloadMedia(message);
+      let buffer: Buffer | any = await client.downloadMedia(message);
       const filename = `./WhatsAppImages/file${message.t}`;
       if (!fs.existsSync(filename)) {
         let result = '';
@@ -76,6 +77,7 @@ async function downloadFileFunction(
           if (err) {
             logger.error(err);
           }
+          buffer = null;
         });
 
         return result;
@@ -262,6 +264,9 @@ export async function closeSession(req: Request, res: Response): Promise<any> {
       (clientsArray as any)[session] = { status: null };
 
       await req.client.close();
+      try {
+        await req.client.page?.browser()?.close();
+      } catch (error) {}
       req.io.emit('whatsapp-status', false);
       callWebHook(req.client, req, 'closesession', {
         message: `Session: ${session} disconnected`,
@@ -296,6 +301,14 @@ export async function logOutSession(req: Request, res: Response): Promise<any> {
   try {
     const session = req.session;
     await req.client.logout();
+
+    try {
+      await req.client.close();
+    } catch (error) {}
+    try {
+      await req.client.page?.browser()?.close();
+    } catch (error) {}
+
     deleteSessionOnArray(req.session);
 
     setTimeout(async () => {
@@ -416,11 +429,12 @@ export async function downloadMediaByMessage(req: Request, res: Response) {
         message: 'Message does not contain media',
       });
 
-    const buffer = await client.decryptFile(message);
+    let buffer: any = await client.decryptFile(message);
 
     res
       .status(200)
       .json({ base64: buffer.toString('base64'), mimetype: message.mimetype });
+    buffer = null;
   } catch (e) {
     req.logger.error(e);
     res.status(400).json({
@@ -464,11 +478,12 @@ export async function getMediaByMessage(req: Request, res: Response) {
         message: 'Message does not contain media',
       });
 
-    const buffer = await client.decryptFile(message);
+    let buffer: any = await client.decryptFile(message);
 
     res
       .status(200)
       .json({ base64: buffer.toString('base64'), mimetype: message.mimetype });
+    buffer = null;
   } catch (ex) {
     req.logger.error(ex);
     res.status(500).json({
