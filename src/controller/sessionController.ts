@@ -10,7 +10,7 @@
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permclearSessionissions and
+ * See the License for the specific language governing permissions and
  * limitations under the License.
  */
 import { Message, Whatsapp } from '@wppconnect-team/wppconnect';
@@ -261,6 +261,15 @@ export async function closeSession(req: Request, res: Response): Promise<any> {
     } else {
       (clientsArray as any)[session] = { status: null };
 
+      // Properly close Puppeteer browser instance
+      try {
+        if (req.client?.browser) {
+          await req.client.browser.close();
+        }
+      } catch (browserError) {
+        req.logger.warn('Error closing browser:', browserError);
+      }
+
       await req.client.close();
       req.io.emit('whatsapp-status', false);
       callWebHook(req.client, req, 'closesession', {
@@ -317,6 +326,15 @@ export async function logOutSession(req: Request, res: Response): Promise<any> {
           force: true,
           retryDelay: 1000,
         });
+      }
+
+      // Properly close Puppeteer browser instance
+      try {
+        if (req.client?.browser) {
+          await req.client.browser.close();
+        }
+      } catch (browserError) {
+        req.logger.warn('Error closing browser:', browserError);
       }
 
       req.io.emit('whatsapp-status', false);
@@ -417,10 +435,14 @@ export async function downloadMediaByMessage(req: Request, res: Response) {
       });
 
     const buffer = await client.decryptFile(message);
+    const base64String = buffer.toString('base64');
+    
+    // Clear buffer from memory
+    buffer.fill(0);
 
     res
       .status(200)
-      .json({ base64: buffer.toString('base64'), mimetype: message.mimetype });
+      .json({ base64: base64String, mimetype: message.mimetype });
   } catch (e) {
     req.logger.error(e);
     res.status(400).json({
@@ -465,10 +487,14 @@ export async function getMediaByMessage(req: Request, res: Response) {
       });
 
     const buffer = await client.decryptFile(message);
+    const base64String = buffer.toString('base64');
+    
+    // Clear buffer from memory
+    buffer.fill(0);
 
     res
       .status(200)
-      .json({ base64: buffer.toString('base64'), mimetype: message.mimetype });
+      .json({ base64: base64String, mimetype: message.mimetype });
   } catch (ex) {
     req.logger.error(ex);
     res.status(500).json({
@@ -800,3 +826,4 @@ export async function editBusinessProfile(req: Request, res: Response) {
     });
   }
 }
+
