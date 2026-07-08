@@ -10,7 +10,7 @@
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permclearSessionissions and
+ * See the License for the specific language governing permissions and
  * limitations under the License.
  */
 import { Message, Whatsapp } from '@wppconnect-team/wppconnect';
@@ -254,12 +254,21 @@ export async function closeSession(req: Request, res: Response): Promise<any> {
    */
   const session = req.session;
   try {
-    if ((clientsArray as any)[session].status === null) {
+    if ((clientsArray as any)[session]?.status === null) {
       return await res
         .status(200)
         .json({ status: true, message: 'Session successfully closed' });
     } else {
       (clientsArray as any)[session] = { status: null };
+
+      // Properly close Puppeteer browser instance
+      try {
+        if (req.client?.browser) {
+          await req.client.browser.close();
+        }
+      } catch (browserError) {
+        req.logger.warn('Error closing browser:', browserError);
+      }
 
       await req.client.close();
       req.io.emit('whatsapp-status', false);
@@ -302,6 +311,15 @@ export async function logOutSession(req: Request, res: Response): Promise<any> {
       const pathUserData = config.customUserDataDir + req.session;
       const pathTokens = __dirname + `../../../tokens/${req.session}.data.json`;
 
+      // Properly close Puppeteer browser instance
+      try {
+        if (req.client?.browser) {
+          await req.client.browser.close();
+        }
+      } catch (browserError) {
+        req.logger.warn('Error closing browser:', browserError);
+      }
+
       if (fs.existsSync(pathUserData)) {
         await fs.promises.rm(pathUserData, {
           recursive: true,
@@ -329,9 +347,6 @@ export async function logOutSession(req: Request, res: Response): Promise<any> {
         .status(200)
         .json({ status: true, message: 'Session successfully closed' });
     }, 500);
-    /*try {
-      await req.client.close();
-    } catch (error) {}*/
   } catch (error) {
     req.logger.error(error);
     res
@@ -800,3 +815,4 @@ export async function editBusinessProfile(req: Request, res: Response) {
     });
   }
 }
+
